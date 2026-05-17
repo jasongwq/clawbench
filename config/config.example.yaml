@@ -270,3 +270,11 @@ ssh:
 #   max_line_bytes: 65536     # Per-line byte cap to prevent memory bloat (default: 64KB) / 单行字节上限（默认: 64KB）
 #   max_buffer_mb: 4          # Total buffer memory cap in MB (default: 4) / 缓冲总内存上限 MB（默认: 4）
 #   max_sessions: 10          # Max concurrent terminal sessions (default: 10) / 最大并发终端会话数（默认: 10）
+
+# Push notifications (JPush for Android)
+# 推送通知（极光推送，用于 Android）
+# push:
+#   jpush:
+#     enabled: false            # Enable JPush notifications (default: false) / 启用极光推送（默认: false）
+#     app_key: ""               # JPush AppKey / 极光推送 AppKey
+#     master_secret: ""         # JPush Master Secret / 极光推送 Master Secret

@@ -255,13 +255,15 @@ import QuoteQuestionBar from './components/common/QuoteQuestionBar.vue'
 import HeaderMarquee from './components/common/HeaderMarquee.vue'
 import TaskTab from '@/components/task/TaskTab.vue'
 import { useQuoteQuestion } from './composables/useQuoteQuestion.ts'
-import { useTaskTab, registerSwitchTab } from '@/composables/useTaskTab.ts'
+import { useTaskTab, registerSwitchTab, onTaskEvent } from '@/composables/useTaskTab.ts'
 import { useSessionIdentity } from './composables/useSessionIdentity.ts'
+import { loadSessionsOnce } from './composables/useChatSession.ts'
 import { useToast } from './composables/useToast.ts'
 import { useAppMode } from './composables/useAppMode.ts'
 import { usePortForward } from './composables/usePortForward.ts'
 import { useFileWatch } from './composables/useFileWatch.ts'
 import { refreshCurrentFile } from './composables/useFileRefresh.ts'
+import { useGlobalEvents } from './composables/useGlobalEvents'
 import { store } from './stores/app.ts'
 import { initMermaid, reRenderMermaid } from './utils/mermaid.ts'
 import { getFileType } from './utils/fileType.ts'
@@ -318,8 +320,23 @@ useFileWatch({
 
 const { isAppMode } = useAppMode()
 const { syncToNative } = usePortForward()
-const { startTaskPolling, stopTaskPolling, markAllTasksRead, navigateToTaskSettings } = useTaskTab()
+const { markAllTasksRead, navigateToTaskSettings, loadTasks } = useTaskTab()
 registerSwitchTab(switchTab)
+
+// Wire up WS global events
+const { onEvent, init: initGlobalEvents, destroy: destroyGlobalEvents } = useGlobalEvents()
+const removeTaskHandler = onEvent((event, data) => {
+    if (event === 'task_update') {
+        onTaskEvent(data)
+    }
+})
+
+const handleForeground = () => {
+    // Full state pull — 3rd defense layer
+    loadSessionsOnce()
+    loadTasks()
+}
+window.addEventListener('clawbench-foreground', handleForeground)
 const terminalRequestedCwd = ref(null)
 
 const quoteQuestion = useQuoteQuestion()
@@ -604,7 +621,8 @@ function playQuoteEmitAnimation(e) {
 }
 
 onMounted(async () => {
-    startTaskPolling()
+    initGlobalEvents()
+    loadTasks()
     window.addEventListener('open-file-manager', handleOpenFileManager)
     window.addEventListener('quote-sent', playQuoteEmitAnimation)
     document.addEventListener('click', handleOverflowOutsideClick)
@@ -672,7 +690,9 @@ onMounted(async () => {
 })
 
 onUnmounted(() => {
-    stopTaskPolling()
+    removeTaskHandler()
+    window.removeEventListener('clawbench-foreground', handleForeground)
+    destroyGlobalEvents()
     window.removeEventListener('open-file-manager', handleOpenFileManager)
     window.removeEventListener('quote-sent', playQuoteEmitAnimation)
     document.removeEventListener('click', handleOverflowOutsideClick)

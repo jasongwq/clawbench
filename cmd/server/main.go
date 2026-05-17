@@ -20,12 +20,15 @@ import (
 	"clawbench/internal/cli"
 	"clawbench/internal/handler"
 	"clawbench/internal/model"
+	"clawbench/internal/platform"
 	"clawbench/internal/rag"
 	"clawbench/internal/service"
 	"clawbench/internal/ssh"
 	"clawbench/internal/speech"
 	"clawbench/internal/summarize"
 	"clawbench/internal/terminal"
+	"clawbench/internal/push"
+	"clawbench/internal/ws"
 )
 
 // multiHandler sends log records to multiple handlers
@@ -394,6 +397,12 @@ func main() {
 		}
 	}
 
+	// Ensure $SHELL reflects the user's login shell (from /etc/passwd).
+	// On Debian/Ubuntu, $SHELL may be /bin/sh (dash) when started from
+	// non-login contexts (systemd, cron, nohup), but AI CLI tools read
+	// $SHELL to decide which shell their "Bash tool" uses.
+	platform.SetLoginShell()
+
 	// Print auto-generated password info (ISS-003d: don't log plaintext password)
 	if autoPassword != "" {
 		slog.Info("auto-generated password (no password configured)",
@@ -583,6 +592,11 @@ func main() {
 			slog.Int("buffer_lines", cfg.Terminal.BufferLines),
 		)
 	}
+
+	// Initialize WS event manager
+	jpushClient := push.NewJPushClient(cfg.Push.JPush)
+	ws.InitManager(jpushClient)
+	handler.SetPushClient(jpushClient)
 
 	mux := http.NewServeMux()
 	handler.RegisterRoutes(mux)
